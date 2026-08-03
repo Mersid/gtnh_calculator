@@ -74,6 +74,16 @@ export class RecipeList {
             }
         });
 
+        this.actionHandlers.set("ignore_link_suggestion", (obj, event, parent) => {
+            if (obj instanceof RecipeGroupModel && event.type === "click") {
+                const element = (event.target as HTMLElement).closest("[data-id]") as HTMLElement;
+                if (element) {
+                    obj.links[element.getAttribute("data-id")!] = LinkAlgorithm.Ignore;
+                    UpdateProject();
+                }
+            }
+        });
+
         this.actionHandlers.set("toggle_link_ignore", (obj, event, parent) => {
             if (obj instanceof RecipeGroupModel && event.type === "click" && event.target instanceof IconBox) {
                 const goods = event.target.obj;
@@ -957,8 +967,15 @@ export class RecipeList {
     private renderStatus() {
         let statusMessage = "";
         let statusClass = "";
+        let suggestionsHtml = "";
         if (page.status === "infeasible") {
             statusMessage = "Infeasible - There is no solution - You probably need to ignore some links";
+            if (page.linkSuggestions.length > 0) {
+                suggestionsHtml = `<br>Ignoring one of these links may fix it: ` +
+                    page.linkSuggestions.map(s =>
+                        `<item-icon data-id="${s.goodsId}" data-action="ignore_link_suggestion" data-iid="${s.groupIid}"></item-icon>`
+                    ).join("");
+            }
         } else if (page.status === "unbounded") {
             statusMessage = "Unbounded - Some items can be produced infinitely";
         } else if (page.status === "solved") {
@@ -969,7 +986,11 @@ export class RecipeList {
         if (this.statusMessageElement) {
             if (statusMessage) {
                 this.statusMessageElement.textContent = statusMessage;
+                if (suggestionsHtml) {
+                    this.statusMessageElement.innerHTML = statusMessage + suggestionsHtml;
+                }
                 this.statusMessageElement.className = `status-message ${statusClass}`;
+                this.statusMessageElement.style.display = '';
             } else {
                 this.statusMessageElement.style.display = 'none';
             }

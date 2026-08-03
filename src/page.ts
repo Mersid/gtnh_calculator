@@ -1,5 +1,5 @@
 import { Goods, Item, Recipe, RecipeInOut, RecipeIoType, RecipeObject, Repository } from "./repository.js";
-import { SolvePage } from "./solver.js";
+import { SolvePage, DiagnoseInfeasibleLinks, LinkSuggestion } from "./solver.js";
 import { showConfirmDialog } from './dialogues.js';
 import { Machine, singleBlockMachine } from "./machines.js";
 import { Choice } from "./machines.js";
@@ -349,6 +349,7 @@ export class PageModel extends ModelObject
     private history: string[] = [];
     private readonly MAX_HISTORY = 50;
     status: "not solved" | "solved" | "infeasible" | "unbounded" = "not solved";
+    linkSuggestions: LinkSuggestion[] = [];
     settings: Settings = {minVoltage: 0, timeUnit: "min"};
     timeScale: number = 1;
 
@@ -493,8 +494,10 @@ export function SetCurrentPage(newPage: PageModel) {
 }
 
 export function UpdateProject(visualOnly:boolean = false) {
-    if (!visualOnly)
+    if (!visualOnly) {
         SolvePage(page);
+        page.linkSuggestions = page.status === "infeasible" ? DiagnoseInfeasibleLinks(page) : [];
+    }
     notifyListeners();
 
     // workaround to getting empty recipes on first solve
