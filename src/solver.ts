@@ -286,6 +286,38 @@ function ApplySolutionGroup(group:RecipeGroupModel, solution:Solution, model:Mod
     }
 }
 
+export type LinkSuggestion = {groupIid:number, goodsId:string};
+
+function CollectMatchLinks(group:RecipeGroupModel, out:{group:RecipeGroupModel, goodsId:string}[]):void
+{
+    for (const goodsId in group.actualLinks) {
+        if ((group.links[goodsId] ?? LinkAlgorithm.Match) === LinkAlgorithm.Match)
+            out.push({group, goodsId});
+    }
+    for (const child of group.elements) {
+        if (child instanceof RecipeGroupModel)
+            CollectMatchLinks(child, out);
+    }
+}
+
+// When the model is infeasible, try ignoring each matched link one at a time
+// and report which ones make the model solvable.
+export function DiagnoseInfeasibleLinks(page:PageModel):LinkSuggestion[]
+{
+    let candidates:{group:RecipeGroupModel, goodsId:string}[] = [];
+    CollectMatchLinks(page.rootGroup, candidates);
+    let fixes:LinkSuggestion[] = [];
+    for (const candidate of candidates) {
+        candidate.group.links[candidate.goodsId] = LinkAlgorithm.Ignore;
+        SolvePage(page);
+        if (page.status === "solved")
+            fixes.push({groupIid: candidate.group.iid, goodsId: candidate.goodsId});
+        delete candidate.group.links[candidate.goodsId];
+    }
+    SolvePage(page);
+    return fixes;
+}
+
 export function SolvePage(page:PageModel):void
 {
     try {

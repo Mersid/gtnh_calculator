@@ -281,6 +281,15 @@ select:hover {
     background-color: #4CAF50;
 }
 
+.status-message item-icon {
+    width: 24px;
+    height: 24px;
+    display: inline-block;
+    vertical-align: middle;
+    cursor: pointer;
+    margin: 0 2px;
+}
+
 /* Drag and Drop styles */
 .recipe-item.dragging,
 .recipe-group.dragging {
