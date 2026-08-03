@@ -346,3 +346,34 @@ select:hover {
 .search-container.hidden {
     display: none;
 }
+
+/* Utilization display */
+.utilization-text {
+    font-size: 8px;
+    white-space: nowrap;
+    margin-left: 4px;
+}
+
+.utilization-text.util-high {
+    color: #ff6b6b;
+}
+
+.utilization-text.util-med {
+    color: #ffd93d;
+}
+
+.utilization-text.util-low {
+    color: #6bcb77;
+}
+
+.recipe-item.util-row-high td:first-child {
+    box-shadow: inset 3px 0 0 #ff6b6b;
+}
+
+.recipe-item.util-row-med td:first-child {
+    box-shadow: inset 3px 0 0 #ffd93d;
+}
+
+.recipe-item.util-row-low td:first-child {
+    box-shadow: inset 3px 0 0 #6bcb77;
+}
