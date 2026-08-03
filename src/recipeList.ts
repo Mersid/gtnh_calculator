@@ -23,6 +23,7 @@ export class RecipeList {
     private searchClose: HTMLElement;
     private searchHighlightStyle:HTMLStyleElement;
     private actionHandlers: Map<string, ActionHandler> = new Map();
+    private maxCrafterCount: number = 0;
 
     constructor() {
         this.productItemsContainer = document.querySelector(".product-items")!;
@@ -271,6 +272,34 @@ export class RecipeList {
             }
         });
 
+        this.actionHandlers.set("normalize", (obj, event) => {
+            if (event.type === "click") {
+                // Find the recipe that requires the most machines (the slowest one)
+                let slowest: RecipeModel | null = null;
+                const visit = (group: RecipeGroupModel) => {
+                    for (const element of group.elements) {
+                        if (element instanceof RecipeModel) {
+                            if (element.recipe?.gtRecipe && element.recipe.gtRecipe.durationTicks > 0 &&
+                                (slowest === null || element.crafterCount > (slowest as RecipeModel).crafterCount)) {
+                                slowest = element;
+                            }
+                        } else if (element instanceof RecipeGroupModel) {
+                            visit(element);
+                        }
+                    }
+                };
+                visit(page.rootGroup);
+
+                if (slowest !== null) {
+                    // Pin the slowest machine to 1 and compute forward.
+                    // Product goals conflict with a fixed crafter count, so they are cleared.
+                    (slowest as RecipeModel).fixedCrafterCount = 1;
+                    page.products = [];
+                    UpdateProject();
+                }
+            }
+        });
+
         this.actionHandlers.set("select_crafter", (obj, event, parent) => {
             if (obj instanceof RecipeModel && event.type === "click") {
                 const target = event.target as HTMLElement;
@@ -396,6 +425,12 @@ export class RecipeList {
                         ShowTooltip(element as HTMLElement, {
                             header: "Change Recipe",
                             text: "Click to select a different recipe"
+                        });
+                        break;
+                    case "normalize":
+                        ShowTooltip(element as HTMLElement, {
+                            header: "Normalize to 1 machine",
+                            text: "Sets the machine count of the slowest machine (the one that needs the most machines) to 1, then computes the rest of the chain forward.\n\nThis shows the inputs and outputs of the chain when there is exactly one machine of every entry.\n\nNote: product goals conflict with a fixed machine count, so the product list is cleared."
                         });
                         break;
                     case "link":
@@ -612,6 +647,7 @@ export class RecipeList {
         }
         let crafter = recipeModel.multiblockCrafter ?? recipe.recipeType.singleblocks[recipeModel.voltageTier] ?? recipe.recipeType.defaultCrafter;
         let machineInfo = recipeModel.machineInfo;
+        let utilizationHtml = "";
         
         let gtRecipe = recipe.gtRecipe;
         let shortInfoContent = `<span data-tooltip="recipe" data-iid="${recipeModel.iid}">${crafter?.name ?? recipe.recipeType.name}</span>`;
@@ -619,6 +655,13 @@ export class RecipeList {
         if (gtRecipe && gtRecipe.durationTicks > 0) {
             let machineCounts = recipeModel.crafterCount;
             machineCountsText = formatAmount(machineCounts);
+
+            if (machineCounts > 0) {
+                const machineUtilization = machineCounts / Math.ceil(machineCounts);
+                const relative = this.maxCrafterCount > 0 ? machineCounts / this.maxCrafterCount : 0;
+                const utilizationClass = relative >= 0.99 ? "util-high" : relative >= 0.5 ? "util-med" : "util-low";
+                utilizationHtml = `<span class="utilization-text ${utilizationClass}" title="Machine utilization: ${(machineUtilization * 100).toFixed(1)}%&#10;Relative to bottleneck: ${(relative * 100).toFixed(1)}%">${Math.round(machineUtilization * 100)}%</span>`;
+            }
 
             if (recipeModel.parallels > 1 || recipeModel.overclockName) {
                 let info = [];
@@ -704,7 +747,7 @@ export class RecipeList {
 
         let iconCell = `<td><div class="icon-container"><item-icon data-id="${crafter.id}" data-action="crafter_click" data-iid="${recipeModel.iid}" data-amount="${machineCountsText}">`+
             `${recipeModel.fixedCrafterCount !== undefined ? `<span class="probability">FIXED</span>` : ''}`+
-            `</item-icon></div></td>`;
+            `</item-icon>${utilizationHtml}</div></td>`;
 
         let shortInfoCell = `<td><div class="short-info" data-iid="${recipeModel.iid}">${shortInfoContent}</div></td>`;
         return iconCell + shortInfoCell;
@@ -712,8 +755,10 @@ export class RecipeList {
 
     private renderRecipe(recipeModel: RecipeModel, group: RecipeGroupModel, level: number = 0): string {
         let recipe = Repository.current.GetById<Recipe>(recipeModel.recipeId);
+        const relative = this.maxCrafterCount > 0 ? recipeModel.crafterCount / this.maxCrafterCount : 0;
+        const rowClass = recipeModel.crafterCount > 0 ? (relative >= 0.99 ? "util-row-high" : relative >= 0.5 ? "util-row-med" : "util-row-low") : "";
         return `
-            <tr class="recipe-item" data-iid="${recipeModel.iid}" draggable="true">
+            <tr class="recipe-item ${rowClass}" data-iid="${recipeModel.iid}" draggable="true">
                 ${this.renderRecipeShortInfo(recipe, recipeModel, group)}
                 ${this.renderIoInfo(recipeModel.flow, group)}
                 <td>
@@ -820,6 +865,10 @@ export class RecipeList {
                         <option value="sec" ${page.settings.timeUnit === "sec" ? 'selected' : ''}>Seconds</option>
                         <option value="tick" ${page.settings.timeUnit === "tick" ? 'selected' : ''}>Ticks</option>
                     </select>
+                </div>
+                <div class="setting-item">
+                    <a href="#" data-action="normalize" data-iid="${page.iid}" data-tooltip="normalize">Normalize to 1 machine</a>
+                    <span class="text-small">(pins the slowest machine to 1 and computes the chain forward; clears the product list)</span>
                 </div>
                 <div class="share-links">
                     Share:
@@ -951,7 +1000,20 @@ export class RecipeList {
     }
 
     private updateRecipeList() {
+        this.maxCrafterCount = this.computeMaxCrafterCount(page.rootGroup);
         this.recipeItemsContainer.innerHTML = this.renderRootGroup(page.rootGroup);
+    }
+
+    private computeMaxCrafterCount(group: RecipeGroupModel): number {
+        let max = 0;
+        for (const element of group.elements) {
+            if (element instanceof RecipeModel) {
+                max = Math.max(max, element.crafterCount);
+            } else if (element instanceof RecipeGroupModel) {
+                max = Math.max(max, this.computeMaxCrafterCount(element));
+            }
+        }
+        return max;
     }
 }
 
