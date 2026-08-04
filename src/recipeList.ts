@@ -280,6 +280,13 @@ export class RecipeList {
 
         this.actionHandlers.set("normalize", (obj, event) => {
             if (event.type === "click") {
+                // Normalizing requires a valid solved state - machine counts from an
+                // infeasible/unanchored solve are meaningless (typically all zero or garbage).
+                if (page.status !== "solved") {
+                    alert("Normalize requires a solved page first.\n\nAdd a product goal (or a fixed crafter count), get to a green \"solved\" status, then normalize.");
+                    return;
+                }
+
                 // Find the recipe that requires the most machines (the slowest one)
                 let slowest: RecipeModel | null = null;
                 const visit = (group: RecipeGroupModel) => {
@@ -296,7 +303,7 @@ export class RecipeList {
                 };
                 visit(page.rootGroup);
 
-                if (slowest !== null) {
+                if (slowest !== null && (slowest as RecipeModel).crafterCount > 0) {
                     // Pin the slowest machine to 1 and compute forward.
                     // Product goals conflict with a fixed crafter count, so they are cleared.
                     (slowest as RecipeModel).fixedCrafterCount = 1;
