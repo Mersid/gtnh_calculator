@@ -313,6 +313,8 @@ export class RecipeList {
                     (slowest as RecipeModel).fixedCrafterCount = 1;
                     page.products = [];
                     UpdateProject();
+                } else {
+                    alert("Nothing to normalize - no machines are running.\n\nAdd a product goal (or a fixed crafter count), get to a green \"solved\" status, then normalize.");
                 }
             }
         });
