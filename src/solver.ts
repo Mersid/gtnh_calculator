@@ -178,6 +178,8 @@ function PreProcessRecipe(recipeModel:RecipeModel, model:Model, collection:LinkC
 function CreateAndMatchLinks(group:RecipeGroupModel, model:Model, collection:LinkCollection)
 {
     for (const child of group.elements) {
+        if (child.disabled)
+            continue;
         if (child instanceof RecipeModel) {
             PreProcessRecipe(child, model, collection);
         } else if (child instanceof RecipeGroupModel) {
@@ -289,6 +291,8 @@ export type LinkSuggestion = {groupIid:number, goodsId:string};
 
 function CollectMatchLinks(group:RecipeGroupModel, out:{group:RecipeGroupModel, goodsId:string}[]):void
 {
+    if (group.disabled)
+        return;
     for (const goodsId in group.actualLinks) {
         if ((group.links[goodsId] ?? LinkAlgorithm.Match) === LinkAlgorithm.Match)
             out.push({group, goodsId});

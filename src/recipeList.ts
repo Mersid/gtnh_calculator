@@ -84,6 +84,13 @@ export class RecipeList {
             }
         });
 
+        this.actionHandlers.set("toggle_disabled", (obj, event, parent) => {
+            if ((obj instanceof RecipeModel || obj instanceof RecipeGroupModel) && event.type === "click") {
+                obj.disabled = !obj.disabled;
+                UpdateProject();
+            }
+        });
+
         this.actionHandlers.set("toggle_link_ignore", (obj, event, parent) => {
             if (obj instanceof RecipeGroupModel && event.type === "click" && event.target instanceof IconBox) {
                 const goods = event.target.obj;
@@ -295,6 +302,8 @@ export class RecipeList {
                 let slowest: RecipeModel | null = null;
                 const visit = (group: RecipeGroupModel) => {
                     for (const element of group.elements) {
+                        if (element.disabled)
+                            continue;
                         if (element instanceof RecipeModel) {
                             if (element.recipe?.gtRecipe && element.recipe.gtRecipe.durationTicks > 0 &&
                                 (slowest === null || element.crafterCount > (slowest as RecipeModel).crafterCount)) {
@@ -444,6 +453,12 @@ export class RecipeList {
                         ShowTooltip(element as HTMLElement, {
                             header: "Change Recipe",
                             text: "Click to select a different recipe"
+                        });
+                        break;
+                    case "toggle_disabled":
+                        ShowTooltip(element as HTMLElement, {
+                            header: "Enable / Disable",
+                            text: "Toggles this recipe or group on or off.\n\nDisabled entries are excluded from the calculation entirely (as if deleted), but stay in the list so you can re-enable them later."
                         });
                         break;
                     case "normalize":
@@ -776,12 +791,14 @@ export class RecipeList {
         let recipe = Repository.current.GetById<Recipe>(recipeModel.recipeId);
         const relative = this.maxCrafterCount > 0 ? recipeModel.crafterCount / this.maxCrafterCount : 0;
         const rowClass = recipeModel.crafterCount > 0 ? (relative >= 0.99 ? "util-row-high" : relative >= 0.5 ? "util-row-med" : "util-row-low") : "";
+        const disabledClass = recipeModel.disabled ? "disabled" : "";
         return `
-            <tr class="recipe-item ${rowClass}" data-iid="${recipeModel.iid}" draggable="true">
+            <tr class="recipe-item ${rowClass} ${disabledClass}" data-iid="${recipeModel.iid}" draggable="true">
                 ${this.renderRecipeShortInfo(recipe, recipeModel, group)}
                 ${this.renderIoInfo(recipeModel.flow, group)}
                 <td>
                     <div class="icon-container">
+                        <button class="delete-btn toggle-btn" data-iid="${recipeModel.iid}" data-action="toggle_disabled" data-tooltip="toggle_disabled">${recipeModel.disabled ? "off" : "on"}</button>
                         <button class="delete-btn" data-iid="${recipeModel.iid}" data-action="change_recipe" data-tooltip="change_recipe">↔</button>
                         <button class="delete-btn" data-iid="${recipeModel.iid}" data-action="delete_recipe">x</button>
                     </div>
@@ -792,7 +809,7 @@ export class RecipeList {
 
     private renderCollapsedGroup(group: RecipeGroupModel, parentGroup: RecipeGroupModel, level: number = 0): string {
         return `
-            <tr class="recipe-group collapsed" data-iid="${group.iid}" draggable="true">
+            <tr class="recipe-group collapsed ${group.disabled ? "disabled" : ""}" data-iid="${group.iid}" draggable="true">
                 <td>
                     <div class="icon-container">
                         <button class="expand-btn icon-button" data-iid="${group.iid}" data-action="toggle_collapse"></button>
@@ -806,6 +823,7 @@ export class RecipeList {
                 ${this.renderIoInfo(group.flow, parentGroup)}
                 <td>
                     <div class="icon-container">
+                        <button class="delete-btn toggle-btn" data-iid="${group.iid}" data-action="toggle_disabled" data-tooltip="toggle_disabled">${group.disabled ? "off" : "on"}</button>
                         <button class="delete-btn" data-iid="${group.iid}" data-action="delete_group">x</button>
                     </div>
                 </td>
@@ -815,7 +833,7 @@ export class RecipeList {
 
     private renderExpandedGroup(group: RecipeGroupModel, level: number = 0): string {
         return `
-            <tr class="recipe-group expanded" data-iid="${group.iid}">
+            <tr class="recipe-group expanded ${group.disabled ? "disabled" : ""}" data-iid="${group.iid}">
                 <td colspan="6" class="expanded-group-cell nested-level-${level%2}">
                     <table class="recipe-table">
                         <tr>
@@ -834,6 +852,7 @@ export class RecipeList {
                             <th class="outputs-cell">OUTPUTS/${page.settings.timeUnit}</th>
                             <th class="action-cell">
                                 <div class="icon-container">
+                                    <button class="delete-btn toggle-btn" data-iid="${group.iid}" data-action="toggle_disabled" data-tooltip="toggle_disabled">${group.disabled ? "off" : "on"}</button>
                                     <button class="delete-btn" data-iid="${group.iid}" data-action="delete_group">x</button>
                                 </div>
                             </th>
@@ -1037,6 +1056,8 @@ export class RecipeList {
     private computeMaxCrafterCount(group: RecipeGroupModel): number {
         let max = 0;
         for (const element of group.elements) {
+            if (element.disabled)
+                continue;
             if (element instanceof RecipeModel) {
                 max = Math.max(max, element.crafterCount);
             } else if (element instanceof RecipeGroupModel) {
