@@ -181,6 +181,7 @@ let emptyFlow:FlowInformation = new FlowInformation();
 
 export abstract class RecipeGroupEntry extends ModelObject{
     flow: FlowInformation = emptyFlow;
+    disabled: boolean = false;
 }
 
 export class RecipeGroupModel extends RecipeGroupEntry
@@ -197,6 +198,8 @@ export class RecipeGroupModel extends RecipeGroupEntry
         visitor.VisitArray(this, "elements", this.elements);
         visitor.VisitData(this, "collapsed", this.collapsed);
         visitor.VisitData(this, "name", this.name);
+        if (this.disabled)
+            visitor.VisitData(this, "disabled", true);
     }
 
     constructor(source:any = undefined)
@@ -216,6 +219,8 @@ export class RecipeGroupModel extends RecipeGroupEntry
                 this.collapsed = true;
             if (typeof source.name === "string")
                 this.name = source.name;
+            if (source.disabled === true)
+                this.disabled = true;
         }
     }
 }
@@ -249,6 +254,8 @@ export class RecipeModel extends RecipeGroupEntry
         visitor.VisitData(this, "crafter", this.crafter);
         visitor.VisitData(this, "choices", this.choices);
         visitor.VisitData(this, "fixedCrafterCount", this.fixedCrafterCount);
+        if (this.disabled)
+            visitor.VisitData(this, "disabled", true);
     }
 
     constructor(source:any = undefined)
@@ -265,6 +272,8 @@ export class RecipeModel extends RecipeGroupEntry
                 this.choices = source.choices;
             if (typeof source.fixedCrafterCount === "number")
                 this.fixedCrafterCount = source.fixedCrafterCount;
+            if (source.disabled === true)
+                this.disabled = true;
         }
     }
 

@@ -386,3 +386,19 @@ select:hover {
 .recipe-item.util-row-low td:first-child {
     box-shadow: inset 3px 0 0 #6bcb77;
 }
+
+/* Disabled entries */
+.recipe-item.disabled td,
+.recipe-group.collapsed.disabled td,
+.recipe-group.expanded.disabled > td {
+    opacity: 0.45;
+}
+
+.toggle-btn {
+    font-size: 8px;
+}
+
+.recipe-item.disabled .toggle-btn,
+.recipe-group.disabled .toggle-btn {
+    color: #ff6b6b;
+}
