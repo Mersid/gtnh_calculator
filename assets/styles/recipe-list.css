@@ -402,3 +402,20 @@ select:hover {
 .recipe-group.disabled .toggle-btn {
     color: #ff6b6b;
 }
+
+/* Machine summary */
+.machine-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+.machine-summary item-icon {
+    width: 32px;
+    height: 32px;
+}
+
+.machine-summary-total {
+    margin-left: 8px;
+}

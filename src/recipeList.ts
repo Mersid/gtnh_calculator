@@ -17,6 +17,7 @@ type ActionHandler = (obj: ModelObject, event: Event, parent: ModelObject) => vo
 export class RecipeList {
     private productItemsContainer: HTMLElement;
     private recipeItemsContainer: HTMLElement;
+    private machineSummaryContainer: HTMLElement;
     private statusMessageElement: HTMLElement;
     private searchContainer: HTMLElement;
     private searchInput: HTMLInputElement;
@@ -28,6 +29,7 @@ export class RecipeList {
     constructor() {
         this.productItemsContainer = document.querySelector(".product-items")!;
         this.recipeItemsContainer = document.querySelector(".recipe-list")!;
+        this.machineSummaryContainer = document.querySelector(".machine-summary")!;
         this.statusMessageElement = document.querySelector('.status-message') as HTMLElement;
         this.searchContainer = document.querySelector('.search-container')!;
         this.searchInput = document.getElementById('recipe-search') as HTMLInputElement;
@@ -43,6 +45,7 @@ export class RecipeList {
             this.renderStatus();
             this.renderProductList();
             this.updateRecipeList();
+            this.renderMachineSummary();
         });
     }
 
@@ -1051,6 +1054,51 @@ export class RecipeList {
             }).join("")}
             <button class="add-product-btn" data-action="add_product" data-iid="0">Add Product</button>
         `;
+    }
+
+    private renderMachineSummary() {
+        // Aggregate machine counts per (crafter, recipe) tuple: the same machine type
+        // may run different recipes, and those counts must be rounded up separately.
+        const counts = new Map<string, {crafterId: string, recipeName: string, count: number}>();
+        const visit = (group: RecipeGroupModel) => {
+            for (const element of group.elements) {
+                if (element.disabled)
+                    continue;
+                if (element instanceof RecipeModel) {
+                    if (element.crafterCount <= 0 || !element.recipe)
+                        continue;
+                    const recipe = element.recipe;
+                    const crafter = element.multiblockCrafter ?? recipe.recipeType.singleblocks[element.voltageTier] ?? recipe.recipeType.defaultCrafter;
+                    const key = crafter.id + "|" + element.recipeId;
+                    let entry = counts.get(key);
+                    if (!entry) {
+                        entry = {crafterId: crafter.id, recipeName: recipe.recipeType.name, count: 0};
+                        counts.set(key, entry);
+                    }
+                    entry.count += element.crafterCount;
+                } else if (element instanceof RecipeGroupModel) {
+                    visit(element);
+                }
+            }
+        };
+        visit(page.rootGroup);
+
+        // Round up to whole machines, with a small epsilon so that float dust
+        // (e.g. 4.0000001 from the solver) doesn't round up to a phantom machine.
+        const EPSILON = 1e-4;
+        const entries = [...counts.values()]
+            .map(entry => ({...entry, machines: Math.ceil(entry.count - EPSILON)}))
+            .filter(entry => entry.machines > 0)
+            .sort((a, b) => b.machines - a.machines);
+
+        const total = entries.reduce((sum, entry) => sum + entry.machines, 0);
+        this.machineSummaryContainer.innerHTML = entries.length === 0
+            ? `<span class="text-small">No machines needed.</span>`
+            : entries.map(entry => {
+                const goods = Repository.current.GetById<Goods>(entry.crafterId);
+                const name = goods?.name ?? entry.crafterId;
+                return `<item-icon data-id="${entry.crafterId}" data-amount="${entry.machines}" title="${entry.machines} × ${name} (${entry.recipeName})\nExact: ${formatAmount(entry.count)} machines"></item-icon>`;
+            }).join('') + `<span class="text-small white-text machine-summary-total">Total: ${total} machines</span>`;
     }
 
     private updateRecipeList() {
