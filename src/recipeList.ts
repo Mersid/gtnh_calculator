@@ -318,7 +318,18 @@ export class RecipeList {
 
                 if (slowest !== null && (slowest as RecipeModel).crafterCount > 0) {
                     // Pin the slowest machine to 1 and compute forward.
-                    // Product goals conflict with a fixed crafter count, so they are cleared.
+                    // Product goals and other fixed crafter counts conflict with the new
+                    // pin (only one anchor can exist), so they are all cleared.
+                    const clearPins = (group: RecipeGroupModel) => {
+                        for (const element of group.elements) {
+                            if (element instanceof RecipeModel) {
+                                element.fixedCrafterCount = undefined;
+                            } else if (element instanceof RecipeGroupModel) {
+                                clearPins(element);
+                            }
+                        }
+                    };
+                    clearPins(page.rootGroup);
                     (slowest as RecipeModel).fixedCrafterCount = 1;
                     page.products = [];
                     UpdateProject();
