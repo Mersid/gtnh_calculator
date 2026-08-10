@@ -1086,18 +1086,32 @@ export class RecipeList {
         // Round up to whole machines, with a small epsilon so that float dust
         // (e.g. 4.0000001 from the solver) doesn't round up to a phantom machine.
         const EPSILON = 1e-4;
-        const entries = [...counts.values()]
+        const tuples = [...counts.values()]
             .map(entry => ({...entry, machines: Math.ceil(entry.count - EPSILON)}))
-            .filter(entry => entry.machines > 0)
-            .sort((a, b) => b.machines - a.machines);
+            .filter(entry => entry.machines > 0);
 
+        // Coalesce per machine type for the build shopping list (e.g. 8 + 4 = 12),
+        // keeping the per-recipe breakdown in the tooltip.
+        const perMachine = new Map<string, {crafterId: string, machines: number, exact: number, breakdown: string[]}>();
+        for (const tuple of tuples) {
+            let entry = perMachine.get(tuple.crafterId);
+            if (!entry) {
+                entry = {crafterId: tuple.crafterId, machines: 0, exact: 0, breakdown: []};
+                perMachine.set(tuple.crafterId, entry);
+            }
+            entry.machines += tuple.machines;
+            entry.exact += tuple.count;
+            entry.breakdown.push(`${tuple.machines} × ${tuple.recipeName} (exact: ${formatAmount(tuple.count)})`);
+        }
+
+        const entries = [...perMachine.values()].sort((a, b) => b.machines - a.machines);
         const total = entries.reduce((sum, entry) => sum + entry.machines, 0);
         this.machineSummaryContainer.innerHTML = entries.length === 0
             ? `<span class="text-small">No machines needed.</span>`
             : entries.map(entry => {
                 const goods = Repository.current.GetById<Goods>(entry.crafterId);
                 const name = goods?.name ?? entry.crafterId;
-                return `<item-icon data-id="${entry.crafterId}" data-amount="${entry.machines}" title="${entry.machines} × ${name} (${entry.recipeName})\nExact: ${formatAmount(entry.count)} machines"></item-icon>`;
+                return `<item-icon data-id="${entry.crafterId}" data-amount="${entry.machines}" title="${entry.machines} × ${name}\n${entry.breakdown.join("\n")}"></item-icon>`;
             }).join('') + `<span class="text-small white-text machine-summary-total">Total: ${total} machines</span>`;
     }
 
