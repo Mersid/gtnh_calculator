@@ -17,6 +17,10 @@ git -c url."https://github.com/".insteadOf="git@github.com:" submodule update --
 A "Unsupported data version" error on page load means the submodule is out of sync
 with the checked-out branch.
 
+A `post-checkout` git hook (`.git/hooks/post-checkout`, not tracked by git, local to
+this machine) runs the submodule sync automatically on branch checkouts, so the
+manual step above is only needed if the hook is missing or a submodule fetch fails.
+
 ## Feature commits (same order on both branches)
 
 1. **Normalize-to-1-machine button + per-recipe utilization display**
