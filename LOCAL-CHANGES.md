@@ -57,12 +57,13 @@ manual step above is only needed if the hook is missing or a submodule fetch fai
    - Files: `src/page.ts`, `src/solver.ts`, `src/recipeList.ts`,
      `assets/styles/recipe-list.css`.
 
-5. **Machine count summary section** (`main` d0c0a9c / `2.8-backport` 9a8f660)
-   - New "Machines" section below the recipe list: total integral machine counts,
-     aggregated per (crafter, recipe) tuple (same machine type running different
-     recipes is rounded up separately), sorted descending, with a grand total.
-     Rounding: ceil with a 1e-4 epsilon so solver float dust rounds down.
-     Hover an icon for the exact fractional count. Skips disabled entries.
+5. **Machine count summary section** (`main` d0c0a9c + 001759a / `2.8-backport` 9a8f660 + 9e669fd)
+   - New "Machines" section below the recipe list: integral machine counts,
+     coalesced per machine type (build shopping list), sorted descending, with a
+     grand total. Rounding happens per (crafter, recipe) tuple first (ceil with a
+     1e-4 epsilon so solver float dust rounds down), then tuples are summed per
+     machine. Hover an icon for the per-recipe breakdown with exact counts.
+     Skips disabled entries.
    - Files: `index.html`, `src/recipeList.ts`, `assets/styles/recipe-list.css`.
 
 6. **Normalize clears stale pins** (`main` 52fbb7a / `2.8-backport` df9a4a4)
