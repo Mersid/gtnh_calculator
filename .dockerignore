@@ -1,0 +1,10 @@
+node_modules
+dist
+.git
+.vscode
+*.log
+
+# Not needed for the image build (tests = .gtnh saves, export = C# tooling)
+tests
+export
+Other versions.md
